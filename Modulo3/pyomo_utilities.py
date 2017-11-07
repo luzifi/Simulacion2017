@@ -11,7 +11,7 @@ import numpy as np
 import pyomo.environ
 import pyomo.opt
     
-def dat_write_lin(dat_name, f, A, b, Aeq, beq):
+def dat_write_lin(f, A, b, Aeq, beq):
     # Dimensions of matrices
     m1 = b.shape[0]
     n = f.shape[0]
@@ -62,7 +62,7 @@ def linprog_model():
     model.f = pyomo.environ.Param(model.K)
     
     # the next line declares a variable indexed by the set J
-    model.x = pyomo.environ.Var(model.K, domain = pyomo.environ.NonNegativeReals)
+    model.x = pyomo.environ.Var(model.K)
     
     def obj_expression(model):
         return pyomo.environ.summation(model.f, model.x)
@@ -125,7 +125,7 @@ def linprog(f, A, b, Aeq=None, beq=None):
             raise ValueError('The shape of Aeq must be equal to (beq.shape[0], f.shape[0])')
         
     # Data file creation
-    dat_write_lin('default', f, A, b, Aeq, beq)
+    dat_write_lin(f, A, b, Aeq, beq)
     
     # Solution
     model = linprog_model()
