@@ -6,7 +6,10 @@ Description: This script contains functions that make possible to use the pyomo
 library directly.
 """
 
+from __future__ import division
 import numpy as np
+import pyomo.environ
+import pyomo.opt
     
 def dat_write_lin(dat_name, f, A, b, Aeq, beq):
     # Dimensions of matrices
@@ -40,6 +43,49 @@ def dat_write_lin(dat_name, f, A, b, Aeq, beq):
     
     # Closing the data file
     dat_file.close()
+    
+def linprog_model():   
+    model = pyomo.environ.AbstractModel()
+    
+    model.m1 = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
+    model.m2 = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
+    model.n = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
+    
+    model.I = pyomo.environ.RangeSet(1, model.m1)
+    model.J = pyomo.environ.RangeSet(1, model.m2)
+    model.K = pyomo.environ.RangeSet(1, model.n)
+    
+    model.A = pyomo.environ.Param(model.I, model.K)
+    model.b = pyomo.environ.Param(model.I)
+    model.Aeq = pyomo.environ.Param(model.J, model.K)
+    model.beq = pyomo.environ.Param(model.J)
+    model.f = pyomo.environ.Param(model.K)
+    
+    # the next line declares a variable indexed by the set J
+    model.x = pyomo.environ.Var(model.K, domain = pyomo.environ.NonNegativeReals)
+    
+    def obj_expression(model):
+        return pyomo.environ.summation(model.f, model.x)
+    
+    model.OBJ = pyomo.environ.Objective(rule=obj_expression)
+    
+    def ax_ineq_constraint(model, i):
+        # return the expression for the inequality constraint for i
+        return sum(model.A[i,k] * model.x[k] for k in model.K) <= model.b[i]
+    
+    def ax_eq_constraint(model, j):
+        # return the expression for the equality constraint for j
+        if sum(model.Aeq[j,k] * model.x[k] for k in model.K) == model.beq[j]:
+            return pyomo.environ.Constraint.Feasible
+        else:
+            return sum(model.Aeq[j,k] * model.x[k] for k in model.K) == model.beq[j]
+    
+    # the next line creates one ineq constraint for each member of the set model.I
+    model.AxleqbConstraint = pyomo.environ.Constraint(model.I, rule=ax_ineq_constraint)
+    # the next line creates one equality constraint for each member of the set model.J
+    model.AxeqbConstraint = pyomo.environ.Constraint(model.J, rule=ax_eq_constraint)
+
+    return model
     
 def linprog(f, A, b, Aeq=None, beq=None):
     # Dimensions of matrices
@@ -82,11 +128,12 @@ def linprog(f, A, b, Aeq=None, beq=None):
     dat_write_lin('default', f, A, b, Aeq, beq)
     
     # Solution
-    import linprog_model
+    model = linprog_model()
     # Create the model instance
     instance = model.create_instance('default.dat')
     # Setup the optimizer: linear in this case
-    opt = SolverFactory('glpk')    
+    import pyomo.environ
+    opt = pyomo.opt.SolverFactory('glpk')    
     # Optimize
     results = opt.solve(instance)
     # Write the output
@@ -94,11 +141,11 @@ def linprog(f, A, b, Aeq=None, beq=None):
     
     # Optimal solution
     x = np.array([instance.x[k].value for k in instance.K])
-    return x, value(instance.OBJ)
+    return x, pyomo.environ.value(instance.OBJ)
     
 
 # Example
-A = np.array([[-3,-4]])
-f = np.array([2,3])
-b = np.array([-1])
-x, f = linprog(f, A, b)
+#A = np.array([[-3,-4]])
+#f = np.array([2,3])
+#b = np.array([-1])
+#x, f = linprog(f, A, b)
