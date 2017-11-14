@@ -10,7 +10,8 @@ from __future__ import division
 import numpy as np
 import pyomo.environ
 import pyomo.opt
-    
+
+################ Linear programming#############################
 def dat_write_lin(f, A, b, Aeq, beq):
     # Dimensions of matrices
     m1 = b.shape[0]
@@ -133,7 +134,7 @@ def linprog(f, A, b, Aeq=None, beq=None):
     instance = model.create_instance('default.dat')
     # Setup the optimizer: linear in this case
     import pyomo.environ
-    opt = pyomo.opt.SolverFactory('glpk')    
+    opt = pyomo.opt.SolverFactory('glpk')
     # Optimize
     results = opt.solve(instance)
     # Write the output
@@ -165,7 +166,7 @@ def dat_write_fit(X, y):
     # Closing the data file
     dat_file.close()
     
-def fit_model():   
+def fit_model(reg_mode, reg_coef, robust, m):   
     model = pyomo.environ.AbstractModel()
     
     model.n = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
@@ -178,16 +179,34 @@ def fit_model():
     model.y = pyomo.environ.Param(model.I)
     
     # the next line declares a variable indexed by the set J
-    model.b = pyomo.environ.Var(model.J)
+    model.b = pyomo.environ.Var(model.J, initialize = 1)
     
     def obj_expression(model):
-        return sum((sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i])**2 for i in model.I)
+        if robust == False:
+            if reg_mode == None:
+                return sum((sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i])**2 for i in model.I)
+            elif reg_mode == 'ridge':
+                if np.any(reg_coef == None):
+                    raise ValueError('You must provide a coeficient for the ridge regularization mode')
+                return sum((sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i])**2 for i in model.I) + reg_coef * sum(model.b[j]**2 for j in model.J)
+            elif reg_mode == 'lasso':
+                if np.any(reg_coef == None):
+                    raise ValueError('You must provide a coeficient for the lasso regularization mode')
+                return sum((sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i])**2 for i in model.I) + reg_coef * sum(np.abs(model.b[j]) for j in model.J)
+            elif reg_mode == 'elastic':
+                if np.any(reg_coef == None):
+                    raise ValueError('You must provide a coeficient for the lasso regularization mode')
+                elif np.size(reg_coef) != 2:
+                    raise ValueError('You must provide two coefficients for elastic net regularization (tuple, list or numpy.ndarray)')
+                return sum((sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i])**2 for i in model.I) + reg_coef[0] * sum(model.b[j]**2 for j in model.J) + reg_coef[1] * sum(np.abs(model.b[j]) for j in model.J)
+        else:
+            return sum(huber_fcn(sum(model.X[i, j] * model.b[j] for j in model.J) - model.y[i]) for i in model.I)
     
     model.OBJ = pyomo.environ.Objective(rule=obj_expression)
 
     return model
     
-def curve_polyfit(x, y, order, reg = None, robust = False): 
+def curve_polyfit(x, y, order, reg_mode = None, reg_coef = None, robust = False): 
     # Dimensions of matrices
     n = x.shape[0]
     m = order
@@ -208,7 +227,7 @@ def curve_polyfit(x, y, order, reg = None, robust = False):
     dat_write_fit(X, y)
     
     # Solution
-    model = fit_model()
+    model = fit_model(reg_mode, reg_coef, robust, m)
     # Create the model instance
     instance = model.create_instance('default1.dat')
     # Setup the optimizer: linear in this case
@@ -222,3 +241,10 @@ def curve_polyfit(x, y, order, reg = None, robust = False):
     # Optimal solution
     b = np.array([instance.b[j].value for j in instance.J])
     return b
+
+def huber_fcn(r):
+    c = 1.345
+    if np.abs(pyomo.environ.value(r)) <= c:
+        return r**2
+    else:
+        return c*(2*np.abs(r) - c)
