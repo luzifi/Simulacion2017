@@ -179,7 +179,7 @@ def fit_model(reg_mode, reg_coef, robust, m):
     model.y = pyomo.environ.Param(model.I)
     
     # the next line declares a variable indexed by the set J
-    model.b = pyomo.environ.Var(model.J, initialize = 1)
+    model.b = pyomo.environ.Var(model.J, initialize = 10)
     
     def obj_expression(model):
         if robust == False:
