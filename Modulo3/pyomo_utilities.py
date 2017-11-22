@@ -8,9 +8,9 @@ library directly.
 
 from __future__ import division
 import numpy as np
-import math
 import pyomo.environ
 import pyomo.opt
+import random
 
 ################ Linear programming#############################
 def dat_write_lin(f, A, b, Aeq, beq):
@@ -64,7 +64,7 @@ def linprog_model():
     model.f = pyomo.environ.Param(model.K)
     
     # the next line declares a variable indexed by the set J
-    model.x = pyomo.environ.Var(model.K)
+    model.x = pyomo.environ.Var(model.K, initialize = 0)
     
     def obj_expression(model):
         return pyomo.environ.summation(model.f, model.x)
@@ -273,7 +273,7 @@ def dat_write_clas(Xa, Y):
     # Closing the data file
     dat_file.close()
     
-def clas_model():   
+def clas_model(n):   
     model = pyomo.environ.AbstractModel()
     
     model.m = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
@@ -296,7 +296,7 @@ def clas_model():
     
 def logreg_clas(X, Y):
     # Dimensions of matrices
-    m = X.shape[0]
+    m, n = X.shape
     
     # Y must be a vector
     if Y.ndim != 1:
@@ -311,7 +311,7 @@ def logreg_clas(X, Y):
     dat_write_clas(Xa, Y)
     
     # Solution
-    model = clas_model()
+    model = clas_model(n)
     # Create the model instance
     instance = model.create_instance('default2.dat')
     # Setup the optimizer: linear in this case
