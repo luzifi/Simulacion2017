@@ -273,7 +273,7 @@ def dat_write_clas(Xa, Y):
     # Closing the data file
     dat_file.close()
     
-def clas_model(n):   
+def clas_model():   
     model = pyomo.environ.AbstractModel()
     
     model.m = pyomo.environ.Param(within=pyomo.environ.NonNegativeIntegers)
@@ -311,7 +311,7 @@ def logreg_clas(X, Y):
     dat_write_clas(Xa, Y)
     
     # Solution
-    model = clas_model(n)
+    model = clas_model()
     # Create the model instance
     instance = model.create_instance('default2.dat')
     # Setup the optimizer: linear in this case
